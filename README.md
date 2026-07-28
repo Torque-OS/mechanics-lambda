@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.png" alt="Torque-OS" width="220"/>
+</p>
+
 # mechanics-lambda
 
 Serverless Function for CPF-based authentication — part of the [Torque-OS](https://github.com/Torque-OS) Mechanics Software platform.
