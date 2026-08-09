@@ -1,0 +1,95 @@
+name: CI/CD — mechanics-lambda
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+  FUNCTION_NAME: mechanics-lambda
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+  deploy:
+    name: Deploy to AWS Lambda
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install production dependencies
+        run: npm ci --omit=dev
+
+      - name: Zip function package
+        run: zip -r function.zip src/ node_modules/ package.json
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Create or update Lambda function
+        run: |
+          if aws lambda get-function --function-name ${{ env.FUNCTION_NAME }} > /dev/null 2>&1; then
+            echo "Updating existing Lambda function..."
+            aws lambda update-function-code \
+              --function-name ${{ env.FUNCTION_NAME }} \
+              --zip-file fileb://function.zip
+
+            aws lambda update-function-configuration \
+              --function-name ${{ env.FUNCTION_NAME }} \
+              --environment "Variables={DATABASE_URL=${{ secrets.DATABASE_URL }},JWT_SECRET=${{ secrets.JWT_SECRET }},JWT_EXPIRATION=3600}"
+          else
+            echo "Creating Lambda function..."
+            aws lambda create-function \
+              --function-name ${{ env.FUNCTION_NAME }} \
+              --runtime nodejs20.x \
+              --handler src/handler.handler \
+              --role ${{ secrets.LAMBDA_ROLE_ARN }} \
+              --zip-file fileb://function.zip \
+              --timeout 15 \
+              --memory-size 256 \
+              --environment "Variables={DATABASE_URL=${{ secrets.DATABASE_URL }},JWT_SECRET=${{ secrets.JWT_SECRET }},JWT_EXPIRATION=3600}"
+          fi
+
+      - name: Wait for Lambda update to complete
+        run: |
+          aws lambda wait function-updated \
+            --function-name ${{ env.FUNCTION_NAME }}
+          echo "Lambda deployed successfully."
+
+      - name: Print Lambda ARN
+        run: |
+          aws lambda get-function-configuration \
+            --function-name ${{ env.FUNCTION_NAME }} \
+            --query 'FunctionArn' \
+            --output text
