@@ -1,9 +1,20 @@
 import jwt from 'jsonwebtoken';
+import { randomUUID } from 'node:crypto';
+import { CUSTOMER_ROLE, jwtConfig } from './config.js';
 
-const SECRET = process.env.JWT_SECRET;
-const EXPIRATION = parseInt(process.env.JWT_EXPIRATION ?? '3600', 10);
+export const generateToken = (customer) => {
+  const { secret, issuer, audience, expiresIn } = jwtConfig();
 
-export const generateToken = (payload) => {
-  if (!SECRET) throw new Error('JWT_SECRET is not configured');
-  return jwt.sign(payload, SECRET, { expiresIn: EXPIRATION });
+  return jwt.sign(
+    { cpf: customer.cpf, role: CUSTOMER_ROLE },
+    secret,
+    {
+      algorithm: 'HS256',
+      subject: String(customer.id),
+      issuer,
+      audience,
+      expiresIn,
+      jwtid: randomUUID(),
+    }
+  );
 };
