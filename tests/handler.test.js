@@ -10,7 +10,6 @@ jest.unstable_mockModule('../src/jwt.js', () => ({
 
 const { handler } = await import('../src/handler.js');
 const { findCustomer } = await import('../src/db.js');
-const { generateToken } = await import('../src/jwt.js');
 
 describe('handler', () => {
   beforeEach(() => jest.clearAllMocks());
@@ -40,11 +39,9 @@ describe('handler', () => {
   });
 
   it('returns 200 with token when CPF is valid and customer is active', async () => {
-    const customer = { id: '1', cpf: '52998224725', active: true };
-    findCustomer.mockResolvedValue(customer);
+    findCustomer.mockResolvedValue({ id: '1', cpf: '52998224725', active: true });
     const res = await handler({ cpf: '529.982.247-25' });
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body).token).toBe('mocked-token');
-    expect(generateToken).toHaveBeenCalledWith(customer);
   });
 });

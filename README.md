@@ -16,12 +16,9 @@ different entry points:
 2. Queries the database to verify the customer exists and is active
 3. Returns a signed JWT for consumption of protected API routes
 
-**`mechanics-lambda-authorizer`** — API Gateway REQUEST authorizer, in front of every
-protected route. Verifies the JWT signature, issuer, audience and expiry. No database
-access, so it stays cheap enough to sit on the hot path.
-
-The native JWT authorizer of the HTTP API is not usable here: it requires an OIDC issuer
-with a JWKS endpoint, and these tokens are HS256 signed with a shared symmetric secret.
+**`mechanics-lambda-authorizer`** verifies the signature and expiry of the token issued
+above. The native JWT authorizer of the HTTP API is not usable here: it requires an OIDC
+issuer with a JWKS endpoint, and these tokens are HS256 signed with a shared secret.
 
 ## Tech Stack
 
@@ -56,7 +53,6 @@ Client
 src/
   handler.js       # Entry point — POST /auth, issues the token
   authorizer.js    # Entry point — API Gateway authorizer, verifies the token
-  config.js        # Token settings shared by both entry points
   cpf.js           # CPF validation logic
   db.js            # RDS connection and customer lookup
   jwt.js           # JWT generation
@@ -64,23 +60,7 @@ tests/
   cpf.test.js
   handler.test.js
   authorizer.test.js
-  jwt.test.js
 ```
-
-## Token Claims
-
-Both this repo and `mechanics-software` sign with the same secret, issuer and audience,
-so either side accepts the other's tokens. The `role` claim is what separates a customer
-from a shop employee.
-
-| Claim | Issued by this repo | Notes |
-|-------|--------------------|-------|
-| `sub` | Customer id | `ClaimTypes` equivalent on the API side |
-| `cpf` | Customer CPF (digits only) | Absent on staff tokens |
-| `role` | `CUSTOMER` | Staff tokens carry `ADMIN`, `ATTENDANT` or `MECHANIC` |
-| `iss` | `torque-os` | Must match on both sides |
-| `aud` | `mechanics-software-api` | Must match on both sides |
-| `jti` | Random UUID | |
 
 ## Local Development
 
@@ -95,9 +75,7 @@ npm test
 |----------|---------|-------------|
 | `DATABASE_URL` | issuer | RDS PostgreSQL connection string |
 | `JWT_SECRET` | both | Secret for signing/verifying tokens (min 32 chars). Must be identical to the one in `mechanics-software` |
-| `JWT_EXPIRATION` | issuer | Token lifetime **in seconds** (default `3600`). Note the API side uses `JWT_EXPIRATION_MINUTES` — different unit, same one hour |
-| `JWT_ISSUER` | both | Defaults to `torque-os` |
-| `JWT_AUDIENCE` | both | Defaults to `mechanics-software-api` |
+| `JWT_EXPIRATION` | issuer | Token lifetime **in seconds** (default `3600`) |
 
 ## CI/CD
 

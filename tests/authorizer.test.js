@@ -2,15 +2,11 @@ import jwt from 'jsonwebtoken';
 import { handler } from '../src/authorizer.js';
 
 const SECRET = 'test-secret-with-at-least-32-characters!!';
-const ISSUER = 'torque-os';
-const AUDIENCE = 'mechanics-software-api';
+const CUSTOMER_ID = 'a3f1c2d4-0000-4000-8000-000000000001';
 
 const sign = (claims = {}, { secret = SECRET, ...options } = {}) =>
-  jwt.sign({ cpf: '52998224725', role: 'CUSTOMER', ...claims }, secret, {
+  jwt.sign({ customerId: CUSTOMER_ID, cpf: '52998224725', ...claims }, secret, {
     algorithm: 'HS256',
-    subject: 'a3f1c2d4-0000-4000-8000-000000000001',
-    issuer: ISSUER,
-    audience: AUDIENCE,
     expiresIn: 3600,
     ...options,
   });
@@ -22,26 +18,13 @@ const request = (token) => ({
 describe('authorizer', () => {
   beforeEach(() => {
     process.env.JWT_SECRET = SECRET;
-    delete process.env.JWT_ISSUER;
-    delete process.env.JWT_AUDIENCE;
   });
 
   it('authorizes a token issued by the CPF login handler', async () => {
     const res = await handler(request(sign()));
 
     expect(res.isAuthorized).toBe(true);
-    expect(res.context).toEqual({
-      sub: 'a3f1c2d4-0000-4000-8000-000000000001',
-      role: 'CUSTOMER',
-      cpf: '52998224725',
-    });
-  });
-
-  it('authorizes a staff token minted by mechanics-software', async () => {
-    const res = await handler(request(sign({ role: 'ADMIN', cpf: undefined })));
-
-    expect(res.isAuthorized).toBe(true);
-    expect(res.context.role).toBe('ADMIN');
+    expect(res.context).toEqual({ customerId: CUSTOMER_ID, cpf: '52998224725' });
   });
 
   it('reads the header when API Gateway capitalizes it', async () => {
@@ -51,9 +34,7 @@ describe('authorizer', () => {
   });
 
   it('denies a request without an Authorization header', async () => {
-    const res = await handler(request());
-
-    expect(res).toEqual({ isAuthorized: false });
+    expect(await handler(request())).toEqual({ isAuthorized: false });
   });
 
   it('denies a header that is not a Bearer scheme', async () => {
@@ -80,22 +61,14 @@ describe('authorizer', () => {
     expect(res.isAuthorized).toBe(false);
   });
 
-  it('denies a token from an unknown issuer', async () => {
-    const res = await handler(request(sign({}, { issuer: 'someone-else' })));
-
-    expect(res.isAuthorized).toBe(false);
-  });
-
-  it('denies a token minted for a different audience', async () => {
-    const res = await handler(request(sign({}, { audience: 'another-api' })));
+  it('denies a token signed with none', async () => {
+    const res = await handler(request(jwt.sign({ customerId: CUSTOMER_ID }, '', { algorithm: 'none' })));
 
     expect(res.isAuthorized).toBe(false);
   });
 
   it('denies a garbage token', async () => {
-    const res = await handler(request('not-a-jwt'));
-
-    expect(res.isAuthorized).toBe(false);
+    expect((await handler(request('not-a-jwt'))).isAuthorized).toBe(false);
   });
 
   it('fails loudly when the secret is not configured', async () => {

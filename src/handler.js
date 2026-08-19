@@ -23,7 +23,7 @@ export const handler = async (event) => {
     return response(403, { error: 'Customer is inactive' });
   }
 
-  const token = generateToken(customer);
+  const token = generateToken({ customerId: customer.id, cpf: customer.cpf });
 
   return response(200, { token });
 };
