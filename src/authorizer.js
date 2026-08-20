@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { jwtConfig } from './config.js';
 
 const DENIED = Object.freeze({ isAuthorized: false });
 
@@ -7,17 +8,20 @@ export const handler = async (event) => {
 
   if (!token) return DENIED;
 
-  const secret = process.env.JWT_SECRET;
-
-  if (!secret) throw new Error('JWT_SECRET is not configured');
+  const { secret, issuer, audience } = jwtConfig();
 
   try {
-    const payload = jwt.verify(token, secret, { algorithms: ['HS256'] });
+    const payload = jwt.verify(token, secret, {
+      algorithms: ['HS256'],
+      issuer,
+      audience,
+    });
 
     return {
       isAuthorized: true,
       context: {
-        customerId: payload.customerId ?? '',
+        sub: payload.sub ?? '',
+        role: payload.role ?? '',
         cpf: payload.cpf ?? '',
       },
     };

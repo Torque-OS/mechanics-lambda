@@ -10,6 +10,8 @@ env:
   AWS_REGION: us-east-1
   FUNCTION_NAME: mechanics-lambda
   AUTHORIZER_FUNCTION_NAME: mechanics-lambda-authorizer
+  JWT_ISSUER: torque-os
+  JWT_AUDIENCE: mechanics-software-api
 
 jobs:
   test:
@@ -71,7 +73,7 @@ jobs:
 
             aws lambda update-function-configuration \
               --function-name ${{ env.FUNCTION_NAME }} \
-              --environment "Variables={DATABASE_URL=${{ secrets.DATABASE_URL }},JWT_SECRET=${{ secrets.JWT_SECRET }},JWT_EXPIRATION=3600}"
+              --environment "Variables={DATABASE_URL=${{ secrets.DATABASE_URL }},JWT_SECRET=${{ secrets.JWT_SECRET }},JWT_EXPIRATION=3600,JWT_ISSUER=${{ env.JWT_ISSUER }},JWT_AUDIENCE=${{ env.JWT_AUDIENCE }}}"
           else
             echo "Creating Lambda function..."
             aws lambda create-function \
@@ -82,7 +84,7 @@ jobs:
               --zip-file fileb://function.zip \
               --timeout 15 \
               --memory-size 256 \
-              --environment "Variables={DATABASE_URL=${{ secrets.DATABASE_URL }},JWT_SECRET=${{ secrets.JWT_SECRET }},JWT_EXPIRATION=3600}"
+              --environment "Variables={DATABASE_URL=${{ secrets.DATABASE_URL }},JWT_SECRET=${{ secrets.JWT_SECRET }},JWT_EXPIRATION=3600,JWT_ISSUER=${{ env.JWT_ISSUER }},JWT_AUDIENCE=${{ env.JWT_AUDIENCE }}}"
           fi
 
       - name: Create or update the API Gateway authorizer function
@@ -99,7 +101,7 @@ jobs:
             aws lambda update-function-configuration \
               --function-name ${{ env.AUTHORIZER_FUNCTION_NAME }} \
               --handler src/authorizer.handler \
-              --environment "Variables={JWT_SECRET=${{ secrets.JWT_SECRET }}}"
+              --environment "Variables={JWT_SECRET=${{ secrets.JWT_SECRET }},JWT_ISSUER=${{ env.JWT_ISSUER }},JWT_AUDIENCE=${{ env.JWT_AUDIENCE }}}"
           else
             echo "Creating authorizer function..."
             aws lambda create-function \
@@ -110,7 +112,7 @@ jobs:
               --zip-file fileb://function.zip \
               --timeout 5 \
               --memory-size 128 \
-              --environment "Variables={JWT_SECRET=${{ secrets.JWT_SECRET }}}"
+              --environment "Variables={JWT_SECRET=${{ secrets.JWT_SECRET }},JWT_ISSUER=${{ env.JWT_ISSUER }},JWT_AUDIENCE=${{ env.JWT_AUDIENCE }}}"
           fi
 
       - name: Wait for both functions to settle
