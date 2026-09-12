@@ -3,7 +3,17 @@ import { findCustomer } from './db.js';
 import { generateToken } from './jwt.js';
 
 export const handler = async (event) => {
-  const cpf = event?.cpf ?? event?.body?.cpf ?? JSON.parse(event?.body ?? '{}')?.cpf;
+  let body = event?.body;
+
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      return response(400, { error: 'Invalid JSON body' });
+    }
+  }
+
+  const cpf = event?.cpf ?? body?.cpf;
 
   if (!cpf) {
     return response(400, { error: 'CPF is required' });
