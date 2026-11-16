@@ -292,7 +292,7 @@ Response:
 { "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." }
 ```
 
-Use the token as `Authorization: Bearer <token>` on all subsequent requests.
+Use the token as `Authorization: Bearer <token>` on all subsequent requests. 
 
 ### Error responses
 
